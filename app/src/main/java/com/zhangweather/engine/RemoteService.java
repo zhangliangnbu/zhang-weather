@@ -24,12 +24,33 @@ public class RemoteService {
 		return instance;
 	}
 
+	/**
+	 * 遵循缓存策略的网络请求
+	 * @param activity 当前应用背景
+	 * @param apiKey   请求名
+	 * @param parameters 请求参数
+	 * @param requestCallback 回调
+	 */
 	public void invoke(BaseActivity activity, String apiKey, List<RequestParameter> parameters,
 	                   RequestCallback requestCallback) {
+		invoke(activity, apiKey, parameters, requestCallback, true);
+	}
+
+	/**
+	 * 网络请求
+	 * @param isCache 是否遵循缓存策略 false则立刻更新
+	 */
+	public void invoke(BaseActivity activity, String apiKey, List<RequestParameter> parameters,
+	                   RequestCallback requestCallback, boolean isCache) {
 		// 构造request
 		URLData urlData = UrlConfigManager.findURL(activity, apiKey);
+		if(urlData != null && !isCache) {
+			urlData.setExpires(0);
+		}
 		HttpRequest httpRequest = new HttpRequest(urlData, parameters, requestCallback);
 		// 添加和执行
 		DefaultThreadPool.getInstance().execute(httpRequest);
 	}
+
+
 }

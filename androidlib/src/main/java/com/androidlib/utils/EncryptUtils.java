@@ -18,7 +18,7 @@ import javax.crypto.spec.SecretKeySpec;
  * 加密和解密
  * Created by zhangliang on 16/9/8.
  */
-public class Encrypt {
+public class EncryptUtils {
 
 	/**
 	 * -------------------BASE64-------------------
@@ -140,7 +140,7 @@ public class Encrypt {
 	 */
 	public static String encryptHash(String originalText, String key) throws NoSuchAlgorithmException {
 		MessageDigest digester = MessageDigest.getInstance(key);
-		digester.update(originalText.getBytes());
+		digester.update(originalText.trim().getBytes());
 		byte[] bytes = digester.digest();
 
 		return parseBytesToHexString(bytes);

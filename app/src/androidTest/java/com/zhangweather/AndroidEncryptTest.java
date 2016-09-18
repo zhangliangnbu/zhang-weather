@@ -1,8 +1,10 @@
 package com.zhangweather;
 
 import android.test.InstrumentationTestCase;
+import android.util.Log;
 
-import com.androidlib.utils.Encrypt;
+import com.androidlib.utils.BaseUtils;
+import com.androidlib.utils.EncryptUtils;
 
 import java.nio.charset.Charset;
 import java.security.NoSuchAlgorithmException;
@@ -20,14 +22,14 @@ public class AndroidEncryptTest extends InstrumentationTestCase{
 		System.out.println("csn:" + csn);
 
 		char[] chars = text.toCharArray();
-		Encrypt.printChars("chars", chars);
+		EncryptUtils.printChars("chars", chars);
 
 		byte[] bytes = text.getBytes();
-		Encrypt.printBytes("bytes", bytes);
+		EncryptUtils.printBytes("bytes", bytes);
 
 		String encryptBASE64 = null;
 		try {
-			encryptBASE64 = Encrypt.encryptBASE64(text);
+			encryptBASE64 = EncryptUtils.encryptBASE64(text);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -35,7 +37,7 @@ public class AndroidEncryptTest extends InstrumentationTestCase{
 
 		String decodeText = null;
 		try {
-			decodeText = Encrypt.decryptBASE64(encryptBASE64);
+			decodeText = EncryptUtils.decryptBASE64(encryptBASE64);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -45,7 +47,7 @@ public class AndroidEncryptTest extends InstrumentationTestCase{
 	public void testSHA() {
 		String encryptText = null;
 		try {
-			encryptText = Encrypt.encryptHash("zhang", Encrypt.KEY_SHA1);
+			encryptText = EncryptUtils.encryptHash("zhang", EncryptUtils.KEY_SHA1);
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 		}
@@ -55,7 +57,7 @@ public class AndroidEncryptTest extends InstrumentationTestCase{
 	public void testHMAC() {
 		String encryptText = null;
 		try {
-			encryptText = Encrypt.parseBytesToHexString(Encrypt.encryptHMACSHA256("zhang".getBytes(), Encrypt.initHMACSHA256Key()));
+			encryptText = EncryptUtils.parseBytesToHexString(EncryptUtils.encryptHMACSHA256("zhang".getBytes(), EncryptUtils.initHMACSHA256Key()));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -65,18 +67,23 @@ public class AndroidEncryptTest extends InstrumentationTestCase{
 	public void testAES() throws Exception {
 		String originalText = "zhang";
 
-		byte[] keyBytes = Encrypt.initAES256Key(null);
-		System.out.println("keyBytes: " + Encrypt.parseBytesToHexString(keyBytes));
+		byte[] keyBytes = EncryptUtils.initAES256Key(null);
+		System.out.println("keyBytes: " + EncryptUtils.parseBytesToHexString(keyBytes));
 		System.out.println("keyBytes size: " + keyBytes.length);
 
-		byte[] encryptBytes = Encrypt.encryptAES(originalText.getBytes(),keyBytes);
-		String encryptText = Encrypt.parseBytesToHexString(encryptBytes);
+		byte[] encryptBytes = EncryptUtils.encryptAES(originalText.getBytes(),keyBytes);
+		String encryptText = EncryptUtils.parseBytesToHexString(encryptBytes);
 		System.out.println("encryptText: " + encryptText);
 
-		byte[] decryptBytes = Encrypt.decryptAES(encryptBytes,keyBytes);
+		byte[] decryptBytes = EncryptUtils.decryptAES(encryptBytes,keyBytes);
 		String decryptText = new String(decryptBytes);
 		System.out.println("decryptText: " + decryptText);
+	}
 
+	public void testStorage() {
+		long data = BaseUtils.getAvaiDataStorageSize();
+		long root = BaseUtils.getAvaiRootStorageSize();
+		Log.d("data-root:", data + "-" + root);
 	}
 
 }
