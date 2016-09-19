@@ -2,14 +2,13 @@
 <manifest package="com.zhangweather"
           xmlns:android="http://schemas.android.com/apk/res/android">
 
-
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
 
     <application
-        android:allowBackup="true"
         android:name=".engine.ZhangWeatherApplication"
+        android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -22,6 +21,14 @@
             </intent-filter>
         </activity>
         <activity android:name=".activity.weather.WeatherByFastJsonActivity">
+        </activity>
+        <activity android:name=".activity.login.LoginMainActivity">
+        </activity>
+        <activity android:name=".activity.login.LoginActivity">
+        </activity>
+        <activity android:name=".activity.news.NewsActivity">
+        </activity>
+        <activity android:name=".activity.personcenter.PersonCenterActivity">
         </activity>
     </application>
 

@@ -6,11 +6,13 @@ import android.view.View;
 import android.widget.Button;
 
 import com.zhangweather.R;
+import com.zhangweather.activity.login.LoginMainActivity;
 import com.zhangweather.activity.weather.WeatherByFastJsonActivity;
 import com.zhangweather.base.AppBaseActivity;
 
 public class MainActivity extends AppBaseActivity {
 	private Button btnByFastJson;
+	private Button btnByLoginMain;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -32,6 +34,16 @@ public class MainActivity extends AppBaseActivity {
 				startActivity(new Intent(MainActivity.this, WeatherByFastJsonActivity.class));
 			}
 		});
+
+		btnByLoginMain = (Button) findViewById(R.id.btnByLoginMain);
+		btnByLoginMain.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				startActivity(new Intent(MainActivity.this, LoginMainActivity.class));
+			}
+		});
+
+
 	}
 
 	@Override
