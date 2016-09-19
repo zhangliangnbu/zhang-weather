@@ -1,6 +1,8 @@
 package com.zhangweather.entity;
 
 /**
+ * 天气实体
+ * TODO 实体最好都直接用 public 成员变量
  * Created by zhangliang on 16/9/12.
  */
 public class WeatherInfo {

@@ -4,7 +4,8 @@
         Key="getWeatherInfo"
         Expires="300"
         NetType="get"
-        Url="http://www.weather.com.cn/data/sk/101010100.html"/>
+        Url="http://www.weather.com.cn/data/sk/101010100.html"
+        MockClass="com.zhangweather.mockdata.MockWeatherInfo"/>
     <Node
         Key="login"
         Expires="0"

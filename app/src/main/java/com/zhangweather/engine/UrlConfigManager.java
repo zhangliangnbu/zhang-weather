@@ -62,6 +62,7 @@ public class UrlConfigManager {
 							urlData.setExpires(Long.parseLong(xmlParser.getAttributeValue(null, "Expires")));
 							urlData.setNetType(xmlParser.getAttributeValue(null, "NetType"));
 							urlData.setUrl(xmlParser.getAttributeValue(null, "Url"));
+							urlData.setMockclass(xmlParser.getAttributeValue(null, "MockClass"));
 							urlList.add(urlData);
 						}
 						break;

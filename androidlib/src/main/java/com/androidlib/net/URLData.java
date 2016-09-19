@@ -8,6 +8,7 @@ public class URLData {
 	private long expires;
 	private String netType;
 	private String url;
+	private String mockclass;
 
 	public URLData() {
 	}
@@ -42,5 +43,13 @@ public class URLData {
 
 	public void setUrl(String url) {
 		this.url = url;
+	}
+
+	public String getMockclass() {
+		return mockclass;
+	}
+
+	public void setMockclass(String mockclass) {
+		this.mockclass = mockclass;
 	}
 }

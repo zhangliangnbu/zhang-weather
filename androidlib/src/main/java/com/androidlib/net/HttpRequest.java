@@ -72,6 +72,107 @@ public class HttpRequest implements Runnable{
 
 	@Override
 	public void run() {
+//		runNormal();
+		runDebug();
+	}
+
+	/**
+	 * URL非正规格式
+	 */
+	private void runDebug() {
+		// 构造request
+		if(urlData.getNetType().equals(REQUEST_GET)) {
+			if(parameterList != null && parameterList.size() > 0) {
+				// sort parameters
+//				sortParameters();
+
+				int index = url.indexOf("sk/");
+				String subUrl = url.substring(0, index + 3);
+				String cityCode = parameterList.get(0).getValue();
+				newUrl = subUrl.concat(cityCode).concat(".html");
+			} else {
+				newUrl = url;// 默认北京天气
+			}
+
+			//缓存判断(需要缓存则看是否有缓存)
+			if(urlData.getExpires() > 0) {
+				String content = CacheManager.getInstance().getFileCache(newUrl);
+				Log.d("content", content + "");
+				if(content != null) {
+					handleNetworkOK(content);
+					return;
+				}
+			}
+
+			request = new HttpGet(newUrl);
+
+		} else if(urlData.getNetType().equals(REQUEST_POST)) {
+			newUrl = url;
+			request = new HttpPost(newUrl);
+			if(parameterList != null && parameterList.size() > 0) {
+				List<BasicNameValuePair> list = new ArrayList<>();
+				for(RequestParameter p : parameterList) {
+					list.add(new BasicNameValuePair(p.getName(), p.getValue()));
+				}
+				try {
+					((HttpPost)request).setEntity(new UrlEncodedFormEntity(list, HTTP.UTF_8));
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}
+			}
+		} else {
+			return;
+		}
+
+		if(newUrl != null) {
+			Log.d("newUrl", newUrl);
+		}
+		request.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
+		request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
+
+
+		try {
+			// 响应
+			response = httpClient.execute(request);
+			int statusCode = response.getStatusLine().getStatusCode();
+			if(statusCode == HttpStatus.SC_OK) {
+				ByteArrayOutputStream byteArrayInputStream = new ByteArrayOutputStream();
+				response.getEntity().writeTo(byteArrayInputStream);
+				String strResponse = new String(byteArrayInputStream.toByteArray()).trim();
+				Log.d("strResponse", strResponse);
+				String result = formatJsonResponse(strResponse);
+				Log.d("strResponsef", result);
+
+//				strResponse = "{'isError':false,'errorType':0,'errorMessage':'','result':{'city':'北京','cityid':'101010100','temp':'17','WD':'西南风','WS':'2级','SD':'54%','WSE':'2','time':'23:15','isRadar':'1','Radar':'JC_RADAR_AZ9010_JB','njd':'暂无实况','qy':'1016'}}";
+
+				// 回调 失败或成功
+				if(requestCallback != null) {
+					final Response responseInJson = JSON.parseObject(result, Response.class);
+					if(responseInJson.hasError()) {
+						handleNetworkError(responseInJson.getErrorMessage());
+					} else {
+						handleNetworkOK(responseInJson.getResult());
+						// 是否缓存
+						if(urlData.getNetType().equals(REQUEST_GET) && urlData.getExpires() > 0) {
+							CacheManager.getInstance().putFileCache(newUrl, responseInJson.getResult(), urlData.getExpires());
+						}
+					}
+				}
+
+			} else {
+				handleNetworkError("网络异常" + statusCode);
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+			handleNetworkError("网络异常");
+		}
+	}
+
+	/**
+	 * 请求格式为正规URL + parameter
+	 */
+	private void runNormal() {
 		// 构造request
 		if(urlData.getNetType().equals(REQUEST_GET)) {
 			if(parameterList != null && parameterList.size() > 0) {
@@ -104,7 +205,8 @@ public class HttpRequest implements Runnable{
 			request = new HttpGet(newUrl);
 
 		} else if(urlData.getNetType().equals(REQUEST_POST)) {
-			request = new HttpPost(url);
+			newUrl = url;
+			request = new HttpPost(newUrl);
 			if(parameterList != null && parameterList.size() > 0) {
 				List<BasicNameValuePair> list = new ArrayList<>();
 				for(RequestParameter p : parameterList) {
@@ -120,6 +222,9 @@ public class HttpRequest implements Runnable{
 			return;
 		}
 
+		if(newUrl != null) {
+			Log.d("newUrl", newUrl);
+		}
 		request.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
 		request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
 
@@ -133,12 +238,14 @@ public class HttpRequest implements Runnable{
 				response.getEntity().writeTo(byteArrayInputStream);
 				String strResponse = new String(byteArrayInputStream.toByteArray()).trim();
 				Log.d("strResponse", strResponse);
+				String result = formatJsonResponse(strResponse);
+				Log.d("strResponsef", result);
 
-				strResponse = "{'isError':false,'errorType':0,'errorMessage':'','result':{'city':'北京','cityid':'101010100','temp':'17','WD':'西南风','WS':'2级','SD':'54%','WSE':'2','time':'23:15','isRadar':'1','Radar':'JC_RADAR_AZ9010_JB','njd':'暂无实况','qy':'1016'}}";
+//				strResponse = "{'isError':false,'errorType':0,'errorMessage':'','result':{'city':'北京','cityid':'101010100','temp':'17','WD':'西南风','WS':'2级','SD':'54%','WSE':'2','time':'23:15','isRadar':'1','Radar':'JC_RADAR_AZ9010_JB','njd':'暂无实况','qy':'1016'}}";
 
 				// 回调 失败或成功
 				if(requestCallback != null) {
-					final Response responseInJson = JSON.parseObject(strResponse, Response.class);
+					final Response responseInJson = JSON.parseObject(result, Response.class);
 					if(responseInJson.hasError()) {
 						handleNetworkError(responseInJson.getErrorMessage());
 					} else {
@@ -158,8 +265,9 @@ public class HttpRequest implements Runnable{
 			e.printStackTrace();
 			handleNetworkError("网络异常");
 		}
-
 	}
+
+
 
 	private void handleNetworkError(final String errorMsg) {
 		if(handler == null || requestCallback == null) {
@@ -236,5 +344,47 @@ public class HttpRequest implements Runnable{
 				return flag;
 			}
 		});
+	}
+
+	/**
+	 * 转换返回的数据为具有errorCode的格式的数据(伪装成从服务器返回的协议数据)
+	 */
+	private String formatJsonResponse(String result) {
+		StringBuilder stringBuilder = new StringBuilder();
+
+		boolean isError = false;
+		int errorType = 0;
+		String errorMessage = "''";
+		String res = "";
+		if(result == null || "".equals(result)) {
+			isError = true;
+			errorType = 1;
+			errorMessage = "暂无数据";
+			res = "";
+		} else {
+			int index1 = result.indexOf(":{");
+			int index2 = result.indexOf("}");
+			res = result.substring(index1 + 1, index2 + 1);
+		}
+
+		stringBuilder.append("{");
+
+		stringBuilder.append("'isError':");
+		stringBuilder.append(isError);
+		stringBuilder.append(",");
+
+		stringBuilder.append("'errorType':");
+		stringBuilder.append(errorType);
+		stringBuilder.append(",");
+
+		stringBuilder.append("'errorMessage':");
+		stringBuilder.append(errorMessage);
+		stringBuilder.append(",");
+
+		stringBuilder.append("'result':");
+		stringBuilder.append(res);
+		stringBuilder.append("}");
+
+		return stringBuilder.toString();
 	}
 }
