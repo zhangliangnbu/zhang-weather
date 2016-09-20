@@ -8,6 +8,7 @@ import android.util.Log;
 import com.alibaba.fastjson.JSON;
 import com.androidlib.cache.CacheManager;
 import com.androidlib.utils.BaseUtils;
+import com.androidlib.utils.CollectionUtils;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -15,6 +16,8 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.cookie.Cookie;
+import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.CoreConnectionPNames;
@@ -33,6 +36,8 @@ import java.util.List;
  * Created by zhangliang on 16/9/9.
  */
 public class HttpRequest implements Runnable{
+	private final static String cookiePath = "/data/data/com.zhangweather/cache/cookie";
+
 	// 区分get还是post的枚举
 	private static final String REQUEST_GET = "get";
 	private static final String REQUEST_POST = "post";
@@ -72,56 +77,16 @@ public class HttpRequest implements Runnable{
 
 	@Override
 	public void run() {
-//		runNormal();
-		runDebug();
-	}
-
-	/**
-	 * URL非正规格式
-	 */
-	private void runDebug() {
 		// 构造request
-		if(urlData.getNetType().equals(REQUEST_GET)) {
-			if(parameterList != null && parameterList.size() > 0) {
-				// sort parameters
-//				sortParameters();
-
-				int index = url.indexOf("sk/");
-				String subUrl = url.substring(0, index + 3);
-				String cityCode = parameterList.get(0).getValue();
-				newUrl = subUrl.concat(cityCode).concat(".html");
-			} else {
-				newUrl = url;// 默认北京天气
-			}
-
-			//缓存判断(需要缓存则看是否有缓存)
-			if(urlData.getExpires() > 0) {
-				String content = CacheManager.getInstance().getFileCache(newUrl);
-				Log.d("content", content + "");
-				if(content != null) {
-					handleNetworkOK(content);
-					return;
-				}
-			}
-
-			request = new HttpGet(newUrl);
-
-		} else if(urlData.getNetType().equals(REQUEST_POST)) {
-			newUrl = url;
-			request = new HttpPost(newUrl);
-			if(parameterList != null && parameterList.size() > 0) {
-				List<BasicNameValuePair> list = new ArrayList<>();
-				for(RequestParameter p : parameterList) {
-					list.add(new BasicNameValuePair(p.getName(), p.getValue()));
-				}
-				try {
-					((HttpPost)request).setEntity(new UrlEncodedFormEntity(list, HTTP.UTF_8));
-				} catch (UnsupportedEncodingException e) {
-					e.printStackTrace();
-				}
-			}
-		} else {
-			return;
+		switch (urlData.getNetType()) {
+			case REQUEST_GET:
+				createGetRequest();// 分两种格式的请求
+				break;
+			case REQUEST_POST:
+				createPostRequest();
+				break;
+			default:
+				return;
 		}
 
 		if(newUrl != null) {
@@ -130,6 +95,67 @@ public class HttpRequest implements Runnable{
 		request.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
 		request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
 
+		// response
+		makeResponse();
+	}
+
+	private boolean isIrregularGetRequest = false;// 非正规的URL
+	private void createGetRequest() {
+		if(parameterList != null && parameterList.size() > 0) {
+			if(isIrregularGetRequest) {
+				int index = url.indexOf("sk/");
+				String subUrl = url.substring(0, index + 3);
+				String cityCode = parameterList.get(0).getValue();
+				newUrl = subUrl.concat(cityCode).concat(".html");
+			} else {
+				// sort parameters
+				sortParameters();
+				StringBuffer stringBuffer = new StringBuffer();
+				for(RequestParameter p : parameterList) {
+					if(stringBuffer.length() == 0) {
+						stringBuffer.append(p.getName() + "=" + BaseUtils.UrlEncodeUnicode(p.getValue()));
+					} else {
+						stringBuffer.append("&" + p.getName() + "=" + BaseUtils.UrlEncodeUnicode(p.getValue()));
+					}
+				}
+				newUrl = url + "?" + stringBuffer.toString();
+			}
+		} else {
+			newUrl = url;
+		}
+
+		//缓存判断(需要缓存则看是否有缓存)
+		if(urlData.getExpires() > 0) {
+			String content = CacheManager.getInstance().getFileCache(newUrl);
+			Log.d("content", content + "");
+			if(content != null) {
+				handleNetworkOK(content);
+				return;
+			}
+		}
+
+		request = new HttpGet(newUrl);
+	}
+
+	private void createPostRequest() {
+		newUrl = url;
+		request = new HttpPost(newUrl);
+		if(parameterList != null && parameterList.size() > 0) {
+			List<BasicNameValuePair> list = new ArrayList<>();
+			for(RequestParameter p : parameterList) {
+				list.add(new BasicNameValuePair(p.getName(), p.getValue()));
+			}
+			try {
+				((HttpPost)request).setEntity(new UrlEncodedFormEntity(list, HTTP.UTF_8));
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private void makeResponse() {
+		// 添加Cookie到请求头中
+		addCookie();
 
 		try {
 			// 响应
@@ -156,6 +182,8 @@ public class HttpRequest implements Runnable{
 						if(urlData.getNetType().equals(REQUEST_GET) && urlData.getExpires() > 0) {
 							CacheManager.getInstance().putFileCache(newUrl, responseInJson.getResult(), urlData.getExpires());
 						}
+						// 保存cookie
+						saveCookie();
 					}
 				}
 
@@ -173,98 +201,7 @@ public class HttpRequest implements Runnable{
 	 * 请求格式为正规URL + parameter
 	 */
 	private void runNormal() {
-		// 构造request
-		if(urlData.getNetType().equals(REQUEST_GET)) {
-			if(parameterList != null && parameterList.size() > 0) {
-				// sort parameters
-				sortParameters();
 
-				StringBuffer stringBuffer = new StringBuffer();
-				for(RequestParameter p : parameterList) {
-					if(stringBuffer.length() == 0) {
-						stringBuffer.append(p.getName() + "=" + BaseUtils.UrlEncodeUnicode(p.getValue()));
-					} else {
-						stringBuffer.append("&" + p.getName() + "=" + BaseUtils.UrlEncodeUnicode(p.getValue()));
-					}
-				}
-				newUrl = url + "?" + stringBuffer.toString();
-			} else {
-				newUrl = url;
-			}
-
-			//缓存判断(需要缓存则看是否有缓存)
-			if(urlData.getExpires() > 0) {
-				String content = CacheManager.getInstance().getFileCache(newUrl);
-				Log.d("content", content + "");
-				if(content != null) {
-					handleNetworkOK(content);
-					return;
-				}
-			}
-
-			request = new HttpGet(newUrl);
-
-		} else if(urlData.getNetType().equals(REQUEST_POST)) {
-			newUrl = url;
-			request = new HttpPost(newUrl);
-			if(parameterList != null && parameterList.size() > 0) {
-				List<BasicNameValuePair> list = new ArrayList<>();
-				for(RequestParameter p : parameterList) {
-					list.add(new BasicNameValuePair(p.getName(), p.getValue()));
-				}
-				try {
-					((HttpPost)request).setEntity(new UrlEncodedFormEntity(list, HTTP.UTF_8));
-				} catch (UnsupportedEncodingException e) {
-					e.printStackTrace();
-				}
-			}
-		} else {
-			return;
-		}
-
-		if(newUrl != null) {
-			Log.d("newUrl", newUrl);
-		}
-		request.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
-		request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
-
-
-		try {
-			// 响应
-			response = httpClient.execute(request);
-			int statusCode = response.getStatusLine().getStatusCode();
-			if(statusCode == HttpStatus.SC_OK) {
-				ByteArrayOutputStream byteArrayInputStream = new ByteArrayOutputStream();
-				response.getEntity().writeTo(byteArrayInputStream);
-				String strResponse = new String(byteArrayInputStream.toByteArray()).trim();
-				Log.d("strResponse", strResponse);
-				String result = formatJsonResponse(strResponse);
-				Log.d("strResponsef", result);
-
-//				strResponse = "{'isError':false,'errorType':0,'errorMessage':'','result':{'city':'北京','cityid':'101010100','temp':'17','WD':'西南风','WS':'2级','SD':'54%','WSE':'2','time':'23:15','isRadar':'1','Radar':'JC_RADAR_AZ9010_JB','njd':'暂无实况','qy':'1016'}}";
-
-				// 回调 失败或成功
-				if(requestCallback != null) {
-					final Response responseInJson = JSON.parseObject(result, Response.class);
-					if(responseInJson.hasError()) {
-						handleNetworkError(responseInJson.getErrorMessage());
-					} else {
-						handleNetworkOK(responseInJson.getResult());
-						// 是否缓存
-						if(urlData.getNetType().equals(REQUEST_GET) && urlData.getExpires() > 0) {
-							CacheManager.getInstance().putFileCache(newUrl, responseInJson.getResult(), urlData.getExpires());
-						}
-					}
-				}
-
-			} else {
-				handleNetworkError("网络异常" + statusCode);
-			}
-
-		} catch (IOException e) {
-			e.printStackTrace();
-			handleNetworkError("网络异常");
-		}
 	}
 
 
@@ -387,4 +324,39 @@ public class HttpRequest implements Runnable{
 
 		return stringBuilder.toString();
 	}
+
+	private synchronized void saveCookie() {
+		List<Cookie> cookies = httpClient.getCookieStore().getCookies();
+		List<SerializableCookie> serializableCookies = null;
+
+		if(!CollectionUtils.isEmpty(cookies)) {
+			serializableCookies = new ArrayList<>();
+			for(Cookie cookie : cookies) {
+				serializableCookies.add(new SerializableCookie(cookie));
+			}
+		}
+
+		BaseUtils.saveObject(cookiePath, serializableCookies);
+
+	}
+
+	private void addCookie() {
+		List<SerializableCookie> cookies = null;
+		Object object = BaseUtils.restoreObject(cookiePath);
+		if(object != null) {
+			cookies = (ArrayList<SerializableCookie>) object;
+		}
+
+		if(!CollectionUtils.isEmpty(cookies)) {
+			BasicCookieStore basicCookieStore = new BasicCookieStore();
+			basicCookieStore.addCookies(cookies.toArray(new Cookie[]{}));
+			httpClient.setCookieStore(basicCookieStore);
+		} else {
+			httpClient.setCookieStore(null);
+		}
+
+	}
+
+
+
 }

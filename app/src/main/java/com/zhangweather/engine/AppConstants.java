@@ -10,7 +10,7 @@ public class AppConstants {
 	public final static String NeedCallback = "NeedCallback";
 
 	// TODO 可用代码实现当前应用所在的路径
-	public final static String CACHEDIR = "/data/data/com.youngheart/cache/";
+	public final static String CACHEDIR = "/data/data/com.zhangweather/cache/";
 
 	//network API key
 	public static final String LOGIN = "login";
