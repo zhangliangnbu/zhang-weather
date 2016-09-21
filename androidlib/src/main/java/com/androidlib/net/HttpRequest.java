@@ -9,7 +9,9 @@ import com.alibaba.fastjson.JSON;
 import com.androidlib.cache.CacheManager;
 import com.androidlib.utils.BaseUtils;
 import com.androidlib.utils.CollectionUtils;
+import com.androidlib.utils.FrameConstants;
 
+import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -26,16 +28,24 @@ import org.apache.http.protocol.HTTP;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 
 /**
  * network request
  * Created by zhangliang on 16/9/9.
  */
 public class HttpRequest implements Runnable{
+	// TODO ??? 不应该写死,而是从外部传入
 	private final static String cookiePath = "/data/data/com.zhangweather/cache/cookie";
 
 	// 区分get还是post的枚举
@@ -53,6 +63,12 @@ public class HttpRequest implements Runnable{
 
 	private Handler handler;
 
+	//新增的头信息
+	HashMap<String, String> headers;
+
+	// 服务器与APP之间的时差, 用于校准
+	private static long deltaBetweenServerAndClientTime;
+
 	public HttpRequest(final URLData data, final List<RequestParameter> params,
 	                   final RequestCallback callBack) {
 		urlData = data;
@@ -66,6 +82,8 @@ public class HttpRequest implements Runnable{
 		}
 
 		handler = new Handler();
+
+		headers = new HashMap<>();
 	}
 
 	/**
@@ -89,11 +107,21 @@ public class HttpRequest implements Runnable{
 				return;
 		}
 
+
+		request.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
+		request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
+
+		// 添加header
+		addHttpHeaders();
+
+		// 添加Cookie到请求头中
+		addCookie();
+
 		if(newUrl != null) {
 			Log.d("newUrl", newUrl);
 		}
-		request.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 30000);
-		request.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 30000);
+		Log.d("headers", "below===");
+		logRequest();
 
 		// response
 		makeResponse();
@@ -154,14 +182,16 @@ public class HttpRequest implements Runnable{
 	}
 
 	private void makeResponse() {
-		// 添加Cookie到请求头中
-		addCookie();
 
 		try {
 			// 响应
 			response = httpClient.execute(request);
+			logResponse(response);
 			int statusCode = response.getStatusLine().getStatusCode();
 			if(statusCode == HttpStatus.SC_OK) {
+				// 更新校准时间
+				updateDeltaBetweenServerAndClientTime();
+
 				ByteArrayOutputStream byteArrayInputStream = new ByteArrayOutputStream();
 				response.getEntity().writeTo(byteArrayInputStream);
 				String strResponse = new String(byteArrayInputStream.toByteArray()).trim();
@@ -355,6 +385,80 @@ public class HttpRequest implements Runnable{
 			httpClient.setCookieStore(null);
 		}
 
+	}
+
+	/**
+	 * TODO 设置额外的头信息, 应该从外部传入, 如直接传入hashmap
+	 */
+	private void addHttpHeaders() {
+		if(request == null || CollectionUtils.isEmpty(headers)) {
+			return;
+		}
+
+		headers.clear();
+		headers.put(FrameConstants.ACCEPT_CHARSET, "UTF-8, *");
+		headers.put(FrameConstants.USER_AGENT, "Zhang Weather App");
+
+		for(Map.Entry<String, String> entry : headers.entrySet()) {
+			if(entry.getKey() != null) {
+				request.addHeader(entry.getKey(), entry.getValue());
+			}
+		}
+	}
+
+	private void logRequest() {
+		if(request == null) {
+			return;
+		}
+
+		// TODO allHeaders size == 0 !!!
+		// 可能是在执行过程中添加的, 但是手动添加的为什么没有添加上呢?
+		Header[] allHeaders = request.getAllHeaders();
+		for(Header header : allHeaders) {
+			Log.d(header.getName(), header.getValue());
+		}
+	}
+
+	private void logResponse(HttpResponse response) {
+		Log.d("log", "response");
+		if(response == null) {
+			return;
+		}
+
+		for(Header header : response.getAllHeaders()) {
+			Log.d(header.getName(), header.getValue());
+		}
+	}
+
+	private SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss z", Locale.ENGLISH);
+	private void updateDeltaBetweenServerAndClientTime() {
+		if(response == null) {
+			return;
+		}
+
+		Header header = response.getLastHeader("Date");
+		if(header == null) {
+			return;
+		}
+
+		String serverDate = header.getValue();//eg: Tue, 20 Sep 2016 07:09:45 GMT
+		if(TextUtils.isEmpty(serverDate)) {
+			return;
+		}
+
+		Date serverDateUAT = null;
+		try {
+			serverDateUAT = sdf.parse(serverDate);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			return;
+		}
+
+		TimeZone.setDefault(TimeZone.getTimeZone("GMT+8"));// 设置系统时间为中国时间
+		deltaBetweenServerAndClientTime = serverDateUAT.getTime() + 8 * 60 * 60 * 1000 - System.currentTimeMillis();
+
+		Log.d("serverDateLong", String.valueOf(serverDateUAT.getTime()));
+		Log.d("systemDateLong", String.valueOf(System.currentTimeMillis()));
 	}
 
 
