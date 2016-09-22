@@ -27,6 +27,7 @@ import org.apache.http.protocol.HTTP;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.zip.GZIPInputStream;
 
 /**
  * network request
@@ -192,9 +194,9 @@ public class HttpRequest implements Runnable{
 				// 更新校准时间
 				updateDeltaBetweenServerAndClientTime();
 
-				ByteArrayOutputStream byteArrayInputStream = new ByteArrayOutputStream();
-				response.getEntity().writeTo(byteArrayInputStream);
-				String strResponse = new String(byteArrayInputStream.toByteArray()).trim();
+				// 根据gzip, 获取response string
+				String strResponse = parseResponseToString();
+
 				Log.d("strResponse", strResponse);
 				String result = formatJsonResponse(strResponse);
 				Log.d("strResponsef", result);
@@ -227,11 +229,39 @@ public class HttpRequest implements Runnable{
 		}
 	}
 
-	/**
-	 * 请求格式为正规URL + parameter
-	 */
-	private void runNormal() {
+	// 根据gzip, 获取response string
+	private String parseResponseToString() {
+		if(response == null || response.getEntity() == null) {
+			return null;
+		}
 
+		Header encode = response.getEntity().getContentEncoding();
+		ByteArrayOutputStream byteArrayInputStream = new ByteArrayOutputStream();
+
+		// 没有contentEncoding 或 没有gzip, 直接获取
+		if(encode == null || TextUtils.isEmpty(encode.getValue()) || !encode.getValue().contains("gzip")) {
+			try {
+				response.getEntity().writeTo(byteArrayInputStream);
+				return new String(byteArrayInputStream.toByteArray()).trim();
+			} catch (IOException e) {
+				e.printStackTrace();
+				return null;
+			} finally {
+				BaseUtils.closeIO(byteArrayInputStream);
+			}
+		}
+
+		// 有gzip
+		InputStream is = null;
+		try {
+			is = new GZIPInputStream(response.getEntity().getContent());
+			return BaseUtils.inputStreamToString(is);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		} finally {
+			BaseUtils.closeIO(is);
+		}
 	}
 
 
@@ -398,6 +428,7 @@ public class HttpRequest implements Runnable{
 		headers.clear();
 		headers.put(FrameConstants.ACCEPT_CHARSET, "UTF-8, *");
 		headers.put(FrameConstants.USER_AGENT, "Zhang Weather App");
+		headers.put(FrameConstants.ACCEPT_ENCODING, "gzip");
 
 		for(Map.Entry<String, String> entry : headers.entrySet()) {
 			if(entry.getKey() != null) {
@@ -420,7 +451,7 @@ public class HttpRequest implements Runnable{
 	}
 
 	private void logResponse(HttpResponse response) {
-		Log.d("log", "response");
+		Log.d("log", "response header");
 		if(response == null) {
 			return;
 		}
@@ -428,6 +459,7 @@ public class HttpRequest implements Runnable{
 		for(Header header : response.getAllHeaders()) {
 			Log.d(header.getName(), header.getValue());
 		}
+
 	}
 
 	private SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss z", Locale.ENGLISH);
