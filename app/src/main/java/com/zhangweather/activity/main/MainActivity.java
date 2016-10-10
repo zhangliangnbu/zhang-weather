@@ -15,11 +15,6 @@ public class MainActivity extends AppBaseActivity {
 	private Button btnByLoginMain;
 
 	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-	}
-
-	@Override
 	protected void initVariables() {
 
 	}

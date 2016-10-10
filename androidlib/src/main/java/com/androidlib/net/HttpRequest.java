@@ -197,9 +197,9 @@ public class HttpRequest implements Runnable{
 				// 根据gzip, 获取response string
 				String strResponse = parseResponseToString();
 
-				Log.d("strResponse", strResponse);
+				Log.d("strResponse", strResponse + "");
 				String result = formatJsonResponse(strResponse);
-				Log.d("strResponsef", result);
+				Log.d("strResponsef", result + "");
 
 //				strResponse = "{'isError':false,'errorType':0,'errorMessage':'','result':{'city':'北京','cityid':'101010100','temp':'17','WD':'西南风','WS':'2级','SD':'54%','WSE':'2','time':'23:15','isRadar':'1','Radar':'JC_RADAR_AZ9010_JB','njd':'暂无实况','qy':'1016'}}";
 
@@ -237,31 +237,36 @@ public class HttpRequest implements Runnable{
 
 		Header encode = response.getEntity().getContentEncoding();
 		ByteArrayOutputStream byteArrayInputStream = new ByteArrayOutputStream();
+		String str = null;
 
 		// 没有contentEncoding 或 没有gzip, 直接获取
 		if(encode == null || TextUtils.isEmpty(encode.getValue()) || !encode.getValue().contains("gzip")) {
 			try {
 				response.getEntity().writeTo(byteArrayInputStream);
-				return new String(byteArrayInputStream.toByteArray()).trim();
+				str = new String(byteArrayInputStream.toByteArray(), "UTF-8").trim();
 			} catch (IOException e) {
 				e.printStackTrace();
-				return null;
 			} finally {
 				BaseUtils.closeIO(byteArrayInputStream);
 			}
+
+			return str;
 		}
 
 		// 有gzip
 		InputStream is = null;
 		try {
-			is = new GZIPInputStream(response.getEntity().getContent());
-			return BaseUtils.inputStreamToString(is);
+			InputStream in = response.getEntity().getContent();
+			Log.d("null ?", (in == null) + "");
+			is = new GZIPInputStream(in);
+			str = BaseUtils.stream2String(is);
 		} catch (IOException e) {
 			e.printStackTrace();
-			return null;
 		} finally {
 			BaseUtils.closeIO(is);
 		}
+
+		return str;
 	}
 
 
@@ -356,8 +361,8 @@ public class HttpRequest implements Runnable{
 		if(result == null || "".equals(result)) {
 			isError = true;
 			errorType = 1;
-			errorMessage = "暂无数据";
-			res = "";
+			errorMessage = "'暂无数据'";
+			res = "''";
 		} else {
 			int index1 = result.indexOf(":{");
 			int index2 = result.indexOf("}");
@@ -421,14 +426,15 @@ public class HttpRequest implements Runnable{
 	 * TODO 设置额外的头信息, 应该从外部传入, 如直接传入hashmap
 	 */
 	private void addHttpHeaders() {
-		if(request == null || CollectionUtils.isEmpty(headers)) {
+		if(request == null || headers == null) {
 			return;
 		}
 
 		headers.clear();
 		headers.put(FrameConstants.ACCEPT_CHARSET, "UTF-8, *");
 		headers.put(FrameConstants.USER_AGENT, "Zhang Weather App");
-		headers.put(FrameConstants.ACCEPT_ENCODING, "gzip");
+//		headers.put(FrameConstants.ACCEPT_ENCODING, "gzip");
+// TODO 返回的gzip文件一直有问题, unexpected end of gzip stream; java.io.EOFException
 
 		for(Map.Entry<String, String> entry : headers.entrySet()) {
 			if(entry.getKey() != null) {

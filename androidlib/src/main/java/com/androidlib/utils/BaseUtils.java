@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 
 /**
@@ -212,7 +213,7 @@ public class BaseUtils {
 	}
 
 	/**
-	 * 关闭
+	 * 关闭流。关闭最外层包装流即可, 包装流close方法中会关闭自己后调用super.close关闭被包装的流。
 	 * @param res 资源
 	 */
 	public static void closeIO(@Nullable Object... res){
@@ -264,13 +265,60 @@ public class BaseUtils {
 
 	private static void closeSqliteDB(@NonNull SQLiteDatabase db) {db.close();}
 
-	public static String inputStreamToString(final InputStream is) throws IOException {
+	public static String inputStreamToString(InputStream is) {
 		final ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		int i = -1;
-		while ((i = is.read()) != -1) {
-			baos.write(i);
+		try {
+			while ((i = is.read()) != -1) {
+				baos.write(i);
+			}
+			return baos.toString();
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		} finally {
+			closeIO(baos);
 		}
-		return baos.toString();
+
+	}
+
+	/**
+	 * stream to byte array
+	 * @return byte array or null
+	 */
+	public static byte[] stream2byte(InputStream is){
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		int len;
+		byte[] b = new byte[1024];
+		byte[] byteArr = null;
+
+		try {
+			while((len=is.read(b)) != -1) {
+				baos.write(b, 0, len);
+			}
+			byteArr = baos.toByteArray();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			closeIO(baos);
+		}
+
+		return byteArr;
+	}
+
+	public static String stream2String(InputStream is){
+		byte[] bytes = stream2byte(is);
+		if(bytes == null) {
+			return null;
+		}
+
+		String str = null;
+		try {
+			str = new String(bytes,"UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return str;
 	}
 
 

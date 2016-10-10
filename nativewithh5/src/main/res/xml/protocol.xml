@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--页面跳转字典-->
+<url>
+
+    <Node
+        Key="gotoPersonCenter"
+        Target="com.zhangliang.nativewithh5.PersonCenterActivity"
+        />
+
+    <Node
+        Key="gotoMovieDetail"
+        Target="com.zhangliang.nativewithh5.MovieDetailActivity"
+        />
+
+    <Node
+        Key="gotoNewsList"
+        Target="com.zhangliang.nativewithh5.NewsListActivity"
+        />
+
+</url>
