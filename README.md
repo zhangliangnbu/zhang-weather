@@ -1,7 +1,7 @@
 # zhang-weather
 《app研发录》的笔记代码
 
-项目结构---===
+项目结构
 
 ·activity： 我们 按照 模块 继续 拆分， 将不 同 模块 的 Activity 划分 到 不同 的 包 下。
 ·adapter： 所有 适配器 都 放在 一起。
