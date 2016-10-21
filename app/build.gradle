@@ -32,7 +32,6 @@ android {
         pro {
             applicationId = "com.zhangweather.pro"
             buildConfigField "boolean", "isMonkey", 'false'
-
         }
         free {
             applicationId = "com.zhangweather.free"
