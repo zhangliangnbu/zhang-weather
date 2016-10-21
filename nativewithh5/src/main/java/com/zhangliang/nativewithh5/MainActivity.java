@@ -3,6 +3,7 @@ package com.zhangliang.nativewithh5;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -39,6 +40,16 @@ public class MainActivity extends BaseActivity {
 
 		// h5页面操作 native代码
 		wvAds.addJavascriptInterface(new JSInteface1(), "baobao");
+
+		//TODO Test
+		TestEnum[] values = TestEnum.values();
+		for(TestEnum testEnum : values) {
+			Log.d("values", testEnum.name());
+		}
+		Log.d("jaja", TestEnum.ASD.name);
+		TestSerielizable testSerielizable = new TestSerielizable();
+		testSerielizable.age = 11;
+		Log.d("age", testSerielizable.age + "");
 	}
 
 

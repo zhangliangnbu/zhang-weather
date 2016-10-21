@@ -17,11 +17,32 @@ android {
         versionName "1.0"
     }
     buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    // 不同包名的包
+    // 以及monkey包
+    productFlavors {
+        pro {
+            applicationId = "com.zhangweather.pro"
+            buildConfigField "boolean", "isMonkey", 'false'
+
+        }
+        free {
+            applicationId = "com.zhangweather.free"
+            buildConfigField "boolean", "isMonkey", 'false'
+        }
+        monkey {
+            buildConfigField "boolean", "isMonkey", 'true'
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7
         targetCompatibility JavaVersion.VERSION_1_7
